@@ -21,6 +21,7 @@ class Instance:
         self.nodes = []
         self.edges = []
         self.maximum_length = 1
+        filepath='data/minimumweightelementarypath/instance_100.json'
         if filepath is not None:
             with open(filepath) as json_file:
                 data = json.load(json_file)
@@ -100,12 +101,17 @@ class Instance:
 
 class BranchingScheme:
 
+
     @total_ordering
     class Node:
 
         id = None
         father = None
         # TODO START
+        number_of_nodes_visited = None
+        visited = None
+        j = None
+        length = None
         # TODO END
         guide = None
         next_child_pos = 0
@@ -123,6 +129,10 @@ class BranchingScheme:
         node = self.Node()
         node.father = None
         # TODO START
+        node.number_of_nodes_visited=1
+        node.visited = (1 << 0)
+        node.j = 0
+        node.length = 0
         # TODO END
         node.guide = 0
         node.id = self.id
@@ -131,41 +141,69 @@ class BranchingScheme:
 
     def next_child(self, father):
         # TODO START
-        pass
+        if len(self.instance.nodes[father.j].edges) == 0:
+            return None
+        j_next = self.instance.nodes[father.j].edges[father.next_child_pos][1]
+        
+        if (father.visited >> j_next) & 1:
+            father.next_child_pos +=1
+            return None
+        if father.number_of_nodes_visited + 1 > self.instance.maximum_length:
+            father.next_child_pos +=1
+            return None
+        child = self.Node()
+        child.father = father
+        child.visited = father.visited + (1 << j_next)
+        child.number_of_nodes_visited = father.number_of_nodes_visited + 1
+        child.j = j_next
+        child.length = father.length + self.instance.edges[self.instance.nodes[father.j].edges[father.next_child_pos][0]].weight
+        child.next_child_pos = 0
+        child.guide = child.length
+        child.id = self.id
+        self.id += 1
+        father.next_child_pos +=1
+        return child
         # TODO END
 
     def infertile(self, node):
         # TODO START
-        pass
+        res = node.next_child_pos == len(self.instance.nodes[node.j].edges)
+        return res
         # TODO END
 
     def leaf(self, node):
         # TODO START
-        pass
+        if node is None or node.number_of_nodes_visited == self.instance.maximum_length:
+            return True
+        return False
         # TODO END
 
     def bound(self, node_1, node_2):
         # TODO START
-        pass
+        return False
         # TODO END
 
     # Solution pool.
 
     def better(self, node_1, node_2):
         # TODO START
-        pass
+        # Compute the objective value of node_1.
+        d1 = node_1.length
+        # Compute the objective value of node_2.
+        d2 = node_2.length
+        return d1 < d2
         # TODO END
 
     def equals(self, node_1, node_2):
         # TODO START
-        pass
+        return False
         # TODO END
 
     # Dominances.
 
     def comparable(self, node):
         # TODO START
-        pass
+        return True
         # TODO END
 
     class Bucket:
@@ -175,29 +213,48 @@ class BranchingScheme:
 
         def __hash__(self):
             # TODO START
-            pass
+            return hash((self.node.j, self.node.visited))
             # TODO END
 
         def __eq__(self, other):
             # TODO START
-            pass
+            return (
+                    # Same last location.
+                    self.node.j == other.node.j
+                    # Same visited locations.
+                    and self.node.visited == other.node.visited)
             # TODO END
 
     def dominates(self, node_1, node_2):
         # TODO START
-        pass
+        #if node_1.length >= node_2.length:
+        #    return True
+        return False
         # TODO END
 
     # Outputs.
 
     def display(self, node):
         # TODO START
-        pass
+        # Compute the objective value of node.
+        d = node.length
+        return str(d)
         # TODO END
 
     def to_solution(self, node):
         # TODO START
-        pass
+        locations = []
+        node_tmp = node
+        while node_tmp.father is not None:
+            #self.instance.edges[self.instance.nodes[node_tmp.father.j].edges[node_tmp.father.next_child_pos]]
+            for i in self.instance.nodes[node_tmp.father.j].edges:
+                if i[1] == node_tmp.j:
+                    locations.append(i[0])
+            
+            node_tmp = node_tmp.father
+        locations.reverse()
+        print(locations)
+        return locations
         # TODO END
 
 
@@ -258,9 +315,10 @@ if __name__ == "__main__":
         elif args.algorithm == "iterative_beam_search":
             output = treesearchsolverpy.iterative_beam_search(
                     branching_scheme,
-                    time_limit=30)
+                    time_limit=1000)
         solution = branching_scheme.to_solution(output["solution_pool"].best)
         if args.certificate is not None:
+            print(solution)
             data = {"edges": solution}
             with open(args.certificate, 'w') as json_file:
                 json.dump(data, json_file)
