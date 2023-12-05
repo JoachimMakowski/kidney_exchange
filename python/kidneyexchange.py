@@ -23,6 +23,7 @@ class Instance:
         self.cycleListe = []
         self.M=[]
         self.maximum_length = 1
+        filepath = ".\data\kidneyexchange\instance_96.json"
         if filepath is not None:
             with open(filepath) as json_file:
                 data = json.load(json_file)
@@ -194,12 +195,15 @@ def bellman_ford(instance : Instance) -> list[list[int]]:
             u = visited[-1]
             v = visited[0]
             for edge in instance.edges:
-                if (edge.node_1_id == v) and (edge.node_2_id == u):
+                if (edge.node_1_id == u) and (edge.node_2_id == v):
                     can_construct_cycle = True
+                    break
             
-            if can_construct_cycle:
-                visited.append(visited[0])
-                visited.reverse()
+            if not can_construct_cycle:
+                continue
+            
+            visited.append(visited[0])
+            visited.reverse()
             
             total_weight = 0
             for i in range(len(visited) - 1):
@@ -210,31 +214,36 @@ def bellman_ford(instance : Instance) -> list[list[int]]:
                         total_weight += edge.weight
             if total_weight < 0:
                 potential_sols.append(visited)
-    return potential_sols
+    if len(potential_sols) == 0:
+        return []
+    # Keeping only solutions with <= K arcs
+    all_vertex_cycles = [cycle for cycle in potential_sols if len(cycle) <= instance.maximum_length+1 and len(cycle) >= 3]
+    all_vertex_cycles.sort(key = lambda cycle : len(cycle))
+
+    if len(all_vertex_cycles) == 0:
+        return []
+    
+    all_cycles : list[list[int]] = []
+    for cycle_found in all_vertex_cycles:
+        solution : list[int] =  []
+        for i in range(len(cycle_found) - 1):
+            u, v = cycle_found[i], cycle_found[i+1]
+            for edge in instance.edges:
+                if (edge.node_1_id == u) and (edge.node_2_id == v):
+                    solution.append(edge.id)
+            i=0
+        all_cycles.append(solution)
+    return all_cycles
 
 def dynamic_programming(instance : Instance) -> list[int]:
     """
         Takes an instance as an input, returns the list of
         edge_id corresponding to the negative cycle found
     """
-    potential_sols = bellman_ford(instance)
-
-    # Keeping only solutions with <= K arcs
-    potential_sols = [cycle for cycle in potential_sols if len(cycle) <= instance.maximum_length]
-    potential_sols.sort(key = lambda cycle : len(cycle))
-
-    if potential_sols == []:
+    all_cycles = bellman_ford(instance)
+    if len(all_cycles) == 0:
         return []
-    
-    neg_cycle = tuple(potential_sols[0])
-    solution : list[int] = []
-    for i in range(len(neg_cycle) - 1):
-        u, v = neg_cycle[i], neg_cycle[i+1]
-        for edge in instance.edges:
-            if (edge.node_1_id == v) and (edge.node_2_id == u):
-                solution.append(edge.id)
-    
-    return solution
+    return all_cycles[0]
 
 class PricingSolver:
 
@@ -257,30 +266,23 @@ class PricingSolver:
     def solve_pricing(self, duals):
         # Build subproblem instance.
         # TODO START
-        instance_to_dyn_prog = Instance()
+        cout_max=-1
+        cycle_max = 0
         for j, cycle in enumerate(instance.cycleListe):
             
             profit = sum([edge.weight for edge in self.instance.edges if edge.id in cycle])
-            for vertex in len(instance.get_vertices()):
-                profit -= duals[vertex]*m[vertex][j]
+            for vertex in range(len(instance.get_vertices())):
+                profit -= duals[vertex]*self.instance.M[vertex][j]
             
-            
-            if profit >= 0:
+            if profit <= 0:
                 continue
-            
-            
-            '''temp_edge = Edge()
-            temp_edge.id = instance.edges[edge].id
-            temp_edge.node_1_id = instance.edges[edge].node_1_id
-            temp_edge.node_2_id = instance.edges[edge].node_2_id
-            temp_edge.weight = -1*profit
-            instance_to_dyn_prog.add_edge_2(edge)'''
+            if profit > cout_max:
+                cout_max=profit
+                cycle_max=cycle
+        if cout_max == -1:
+            return []
+        
 
-        # TODO END
-
-        # Solve subproblem instance.
-        # TODO START
-        solution = dynamic_programming(instance_to_dyn_prog)
         # TODO END
 
         # Retrieve column.
@@ -289,11 +291,12 @@ class PricingSolver:
         column.objective_coefficient = 0
         
         
-        for j in solution:
+        for edge in self.instance.edges:
+            if edge.id in cycle_max:
             #if self.instance.edges[j] > 0:
-            column.row_indices.append(self.instance.edges[j].node_1_id)
-            column.row_coefficients.append(1)
-            column.objective_coefficient += self.instance.edges[j].weight
+                column.row_indices.append(edge.node_1_id)
+                column.row_coefficients.append(1)
+                column.objective_coefficient += edge.weight
         # TODO END
         return [column]
 
@@ -310,12 +313,13 @@ def get_parameters(instance : Instance):
     # Row bounds.
     for edge in instance.edges:
         edge.weight *= -1
-        cycleList : list[list[int]] = bellman_ford(instance)
-        instance.cycleListe =cycleList
+
+    cycleList : list[list[int]] = bellman_ford(instance)
+    instance.cycleListe =cycleList
     m = instance.matrice(cycleList)
-
-
-    self.M=m    for edge in instance.edges:
+    instance.M=m    
+    
+    for edge in instance.edges:
         edge.weight *= -1
 
     for vertex in range(number_of_constraints):
