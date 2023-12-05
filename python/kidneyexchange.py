@@ -20,6 +20,8 @@ class Instance:
     def __init__(self, filepath=None):
         self.nodes = []
         self.edges = []
+        self.cycleListe = []
+        self.M=[]
         self.maximum_length = 1
         if filepath is not None:
             with open(filepath) as json_file:
@@ -57,8 +59,7 @@ class Instance:
         self.nodes[node_id_1].edges.append((edge.id, node_id_2))
     
     #TODO Le j° vertex appartient au i°cycle
-    def matrice(self):
-        CycleList : list[list[int]] = bellman_ford(self)
+    def matrice(self,CycleList):
         m = len(self.get_vertices()) * [len(CycleList) * [0]]
         for cycle_no, cycle in enumerate(CycleList):
             for edge_id in cycle:
@@ -257,11 +258,16 @@ class PricingSolver:
         # Build subproblem instance.
         # TODO START
         instance_to_dyn_prog = Instance()
-        for vertex in range(len(instance.get_vertices())):
-            profit = duals[vertex]
+        for j, cycle in enumerate(instance.cycleListe):
             
-            if profit <= 0:
+            profit = sum([edge.weight for edge in self.instance.edges if edge.id in cycle])
+            for vertex in len(instance.get_vertices()):
+                profit -= duals[vertex]*m[vertex][j]
+            
+            
+            if profit >= 0:
                 continue
+            
             
             '''temp_edge = Edge()
             temp_edge.id = instance.edges[edge].id
@@ -304,10 +310,12 @@ def get_parameters(instance : Instance):
     # Row bounds.
     for edge in instance.edges:
         edge.weight *= -1
+        cycleList : list[list[int]] = bellman_ford(instance)
+        instance.cycleListe =cycleList
+    m = instance.matrice(cycleList)
 
-    m = instance.matrice()
 
-    for edge in instance.edges:
+    self.M=m    for edge in instance.edges:
         edge.weight *= -1
 
     for vertex in range(number_of_constraints):
