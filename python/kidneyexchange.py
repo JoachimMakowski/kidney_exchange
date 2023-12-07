@@ -23,7 +23,6 @@ class Instance:
         self.cycleListe = []
         self.M=[]
         self.maximum_length = 1
-        filepath = ".\data\kidneyexchange\instance_96.json"
         if filepath is not None:
             with open(filepath) as json_file:
                 data = json.load(json_file)
@@ -61,7 +60,7 @@ class Instance:
     
     #TODO Le j° vertex appartient au i°cycle
     def matrice(self,CycleList):
-        m = len(self.get_vertices()) * [len(CycleList) * [0]]
+        m = [[0 for _ in range(len(CycleList))] for _ in range(len(self.get_vertices()))]
         for cycle_no, cycle in enumerate(CycleList):
             for edge_id in cycle:
                 u = self.edges[edge_id].node_2_id
@@ -229,7 +228,7 @@ def bellman_ford(instance : Instance) -> list[list[int]]:
         for i in range(len(cycle_found) - 1):
             u, v = cycle_found[i], cycle_found[i+1]
             for edge in instance.edges:
-                if (edge.node_1_id == u) and (edge.node_2_id == v):
+                if (edge.node_1_id == v) and (edge.node_2_id == u):
                     solution.append(edge.id)
             i=0
         all_cycles.append(solution)
