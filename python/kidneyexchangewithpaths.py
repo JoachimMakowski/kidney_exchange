@@ -52,6 +52,30 @@ class Instance:
             self.add_node()
         self.nodes[node_id_1].edges.append((edge.id, node_id_2))
 
+    def depthFirst(self, graph, currentVertex, visited):
+        if len(visited)<=14:
+            visited.append(currentVertex)
+            for vertex in graph[currentVertex]:
+                if vertex not in visited:
+                    self.depthFirst(graph, vertex, visited.copy())
+        self.visitedList.append(visited)
+
+    
+    def combPath(self):
+        dict_neighbors = {} # 
+        edge: Edge
+        for edge in self.edges:
+            if edge.node_1_id not in dict_neighbors.keys():
+                dict_neighbors[edge.node_1_id] = [edge.node_2_id]
+            else:
+                dict_neighbors[edge.node_1_id].append(edge.node_2_id)
+        print(dict_neighbors)
+        for donneur in self.selfless_donors:
+            #self.recursif([donneur],adj,listPath)
+            self.depthFirst(dict_neighbors, donneur, [])
+
+        return self.visitedList
+
     def write(self, filepath):
         data = {"maximum_cycle_length": self.maximum_cycle_length,
                 "maximum_path_length": self.maximum_path_length,

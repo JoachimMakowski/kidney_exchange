@@ -70,30 +70,7 @@ class Instance:
                 m[v][cycle_no] = 1
         return m
     
-    def combPath(self):
-        adj = [[0 for _ in range(len(self.get_vertices()))] for _ in range(len(self.get_vertices()))]
-        for edge in self.edges:
-            adj[edge.node_1_id][edge.node_2_id]=1
-        listPath=[]
-        for donneur in self.selfless_donors:
-            self.recursif([donneur],adj,listPath)
-        return listPath
-
-
-    def recursif(self,nodeVisited,adj,listPath):
-        if len(nodeVisited)>=self.maximum_path_length:
-            return listPath.append(nodeVisited.copy())
-        
-        condFin=True
-        for voisin in range(len(self.get_vertices())):
-            if adj[nodeVisited[-1]][voisin]==1 and voisin not in nodeVisited:
-                condFin=False
-                nodeVisited.append(voisin)
-                listPath = self.recursif(nodeVisited,adj,listPath)
-                nodeVisited = nodeVisited[:len(nodeVisited)-1]
-        if condFin:
-            listPath.append(nodeVisited.copy())
-            return listPath
+    
 
     def write(self, filepath):
         data = {"maximum_cycle_length": self.maximum_cycle_length,
