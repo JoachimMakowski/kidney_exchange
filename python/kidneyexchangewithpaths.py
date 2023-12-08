@@ -1,5 +1,5 @@
 import columngenerationsolverpy
-
+import kidneyexchange
 import json
 
 
@@ -20,13 +20,14 @@ class Instance:
     def __init__(self, filepath=None):
         self.nodes = []
         self.edges = []
+        self.visitedList = []
         self.selfless_donors = []
         self.maximum_length = 1
         if filepath is not None:
             with open(filepath) as json_file:
                 data = json.load(json_file)
-                self.maximum_length = data["maximum_cycle_length"]
-                self.maximum_length = data["maximum_path_length"]
+                self.maximum_cycle_length = data["maximum_cycle_length"]
+                self.maximum_path_length = data["maximum_path_length"]
                 self.selfless_donors = data["selfless_donors"]
                 edges = zip(
                         data["edge_heads"],
@@ -41,6 +42,13 @@ class Instance:
         node.edges = []
         self.nodes.append(node)
 
+    def get_vertices(self) -> set[int]:
+        vertices : set[int] = set()
+        for edge in self.edges:
+            vertices.add(edge.node_1_id)
+            vertices.add(edge.node_2_id)
+        return vertices
+
     def add_edge(self, node_id_1, node_id_2, weight):
         edge = Edge()
         edge.id = len(self.edges)
@@ -51,6 +59,40 @@ class Instance:
         while max(node_id_1, node_id_2) >= len(self.nodes):
             self.add_node()
         self.nodes[node_id_1].edges.append((edge.id, node_id_2))
+
+    def matrice(self,CycleList,PathList):
+        m = [[0 for _ in range(len(CycleList))] for _ in range(len(self.get_vertices()))]
+        for cycle_no, cycle in enumerate(CycleList):
+            for edge_id in cycle:
+                u = self.edges[edge_id].node_2_id
+                v = self.edges[edge_id].node_1_id
+                m[u][cycle_no] = 1
+                m[v][cycle_no] = 1
+        return m
+    
+    def depthFirst(self, graph, currentVertex, visited):
+        if len(visited)<=14:
+            visited.append(currentVertex)
+            for vertex in graph[currentVertex]:
+                if vertex not in visited:
+                    self.depthFirst(graph, vertex, visited.copy())
+        self.visitedList.append(visited)
+
+    
+    def combPath(self):
+        dict_neighbors = {} # 
+        edge: Edge
+        for edge in self.edges:
+            if edge.node_1_id not in dict_neighbors.keys():
+                dict_neighbors[edge.node_1_id] = [edge.node_2_id]
+            else:
+                dict_neighbors[edge.node_1_id].append(edge.node_2_id)
+        print(dict_neighbors)
+        for donneur in self.selfless_donors:
+            #self.recursif([donneur],adj,listPath)
+            self.depthFirst(dict_neighbors, donneur, [])
+
+        return self.visitedList
 
     def write(self, filepath):
         data = {"maximum_cycle_length": self.maximum_cycle_length,
@@ -161,8 +203,29 @@ class PricingSolver:
 
 def get_parameters(instance):
     # TODO START
-    number_of_constraints = None
+    number_of_constraints = len(instance.get_vertices())
     p = columngenerationsolverpy.Parameters(number_of_constraints)
+    p.objective_sense = "max"
+
+    for edge in instance.edges:
+        edge.weight *= -1
+
+    cycleList : list[list[int]] = kidneyexchange.bellman_ford(instance)
+    instance.cycleListe =cycleList
+    #m = instance.matrice(cycleList,null)
+    #instance.M=m    
+
+    pathList = instance.combPath()
+    print("------------------")
+    print(len(pathList))
+    print("------------------")
+
+    for edge in instance.edges:
+        edge.weight *= -1
+    
+    
+    
+    
     # TODO END
     # Pricing solver.
     p.pricing_solver = PricingSolver(instance)
