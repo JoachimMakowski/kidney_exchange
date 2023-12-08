@@ -22,7 +22,7 @@ class Instance:
         self.edges = []
         self.selfless_donors = []
         self.maximum_length = 1
-        filepath = ".\data\kidneyexchange\instance_6.json"
+        filepath = "data/kidneyexchange/instance_6.json"
         if filepath is not None:
             with open(filepath) as json_file:
                 data = json.load(json_file)
@@ -70,30 +70,29 @@ class Instance:
                 m[v][cycle_no] = 1
         return m
     
+    def depthFirst(self, graph, currentVertex, visited):
+        if len(visited)<=14:
+            visited.append(currentVertex)
+            for vertex in graph[currentVertex]:
+                if vertex not in visited:
+                    self.depthFirst(graph, vertex, visited.copy())
+        self.visitedList.append(visited)
+
+    
     def combPath(self):
-        adj = [[0 for _ in range(len(self.get_vertices()))] for _ in range(len(self.get_vertices()))]
+        dict_neighbors = {} # 
+        edge: Edge
         for edge in self.edges:
-            adj[edge.node_1_id][edge.node_2_id]=1
-        listPath=[]
+            if edge.node_1_id not in dict_neighbors.keys():
+                dict_neighbors[edge.node_1_id] = [edge.node_2_id]
+            else:
+                dict_neighbors[edge.node_1_id].append(edge.node_2_id)
+        print(dict_neighbors)
         for donneur in self.selfless_donors:
-            self.recursif([donneur],adj,listPath)
-        return listPath
+            #self.recursif([donneur],adj,listPath)
+            self.depthFirst(dict_neighbors, donneur, [])
 
-
-    def recursif(self,nodeVisited,adj,listPath):
-        if len(nodeVisited)>=self.maximum_path_length:
-            return listPath.append(nodeVisited.copy())
-        
-        condFin=True
-        for voisin in range(len(self.get_vertices())):
-            if adj[nodeVisited[-1]][voisin]==1 and voisin not in nodeVisited:
-                condFin=False
-                nodeVisited.append(voisin)
-                listPath = self.recursif(nodeVisited,adj,listPath)
-                nodeVisited = nodeVisited[:len(nodeVisited)-1]
-        if condFin:
-            listPath.append(nodeVisited.copy())
-            return listPath
+        return self.visitedList
 
     def write(self, filepath):
         data = {"maximum_cycle_length": self.maximum_cycle_length,
