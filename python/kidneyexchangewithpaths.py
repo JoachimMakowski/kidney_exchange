@@ -1,5 +1,5 @@
 import columngenerationsolverpy
-
+import kidneyexchange
 import json
 
 
@@ -20,13 +20,14 @@ class Instance:
     def __init__(self, filepath=None):
         self.nodes = []
         self.edges = []
+        self.visitedList = []
         self.selfless_donors = []
         self.maximum_length = 1
         if filepath is not None:
             with open(filepath) as json_file:
                 data = json.load(json_file)
-                self.maximum_length = data["maximum_cycle_length"]
-                self.maximum_length = data["maximum_path_length"]
+                self.maximum_cycle_length = data["maximum_cycle_length"]
+                self.maximum_path_length = data["maximum_path_length"]
                 self.selfless_donors = data["selfless_donors"]
                 edges = zip(
                         data["edge_heads"],
@@ -40,6 +41,13 @@ class Instance:
         node.id = len(self.nodes)
         node.edges = []
         self.nodes.append(node)
+
+    def get_vertices(self) -> set[int]:
+        vertices : set[int] = set()
+        for edge in self.edges:
+            vertices.add(edge.node_1_id)
+            vertices.add(edge.node_2_id)
+        return vertices
 
     def add_edge(self, node_id_1, node_id_2, weight):
         edge = Edge()
@@ -185,8 +193,29 @@ class PricingSolver:
 
 def get_parameters(instance):
     # TODO START
-    number_of_constraints = None
+    number_of_constraints = len(instance.get_vertices())
     p = columngenerationsolverpy.Parameters(number_of_constraints)
+    p.objective_sense = "max"
+
+    for edge in instance.edges:
+        edge.weight *= -1
+
+    cycleList : list[list[int]] = kidneyexchange.bellman_ford(instance)
+    instance.cycleListe =cycleList
+    #m = instance.matrice(cycleList,null)
+    #instance.M=m    
+
+    pathList = instance.combPath()
+    print("------------------")
+    print(len(pathList))
+    print("------------------")
+
+    for edge in instance.edges:
+        edge.weight *= -1
+    
+    
+    
+    
     # TODO END
     # Pricing solver.
     p.pricing_solver = PricingSolver(instance)
