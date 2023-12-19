@@ -60,16 +60,6 @@ class Instance:
             self.add_node()
         self.nodes[node_id_1].edges.append((edge.id, node_id_2))
 
-    def matrice(self,CycleList,PathList):
-        m = [[0 for _ in range(len(CycleList))] for _ in range(len(self.get_vertices()))]
-        for cycle_no, cycle in enumerate(CycleList):
-            for edge_id in cycle:
-                u = self.edges[edge_id].node_2_id
-                v = self.edges[edge_id].node_1_id
-                m[u][cycle_no] = 1
-                m[v][cycle_no] = 1
-        return m
-    
     def depthFirst(self, graph, currentVertex, visited):
         if len(visited)<=14:
             visited.append(currentVertex)

@@ -21,7 +21,7 @@ class Instance:
         self.nodes = []
         self.edges = []
         self.maximum_length = 1
-        filepath='data/minimumweightelementarypath/instance_100.json'
+        #filepath='data/minimumweightelementarypath/instance_100.json'
         if filepath is not None:
             with open(filepath) as json_file:
                 data = json.load(json_file)
@@ -129,8 +129,8 @@ class BranchingScheme:
         node = self.Node()
         node.father = None
         # TODO START
-        node.number_of_nodes_visited=1
-        node.visited = (1 << 0)
+        node.number_of_nodes_visited=0
+        node.visited = 0
         node.j = 0
         node.length = 0
         # TODO END
@@ -141,33 +141,53 @@ class BranchingScheme:
 
     def next_child(self, father):
         # TODO START
-        if len(self.instance.nodes[father.j].edges) == 0:
-            return None
-        j_next = self.instance.nodes[father.j].edges[father.next_child_pos][1]
-        
-        if (father.visited >> j_next) & 1:
+        if father.number_of_nodes_visited:
+            if len(self.instance.nodes[father.j].edges) == 0:
+                return None
+            j_next = self.instance.nodes[father.j].edges[father.next_child_pos][1]
+            
+            if (father.visited >> j_next) & 1:
+                father.next_child_pos +=1
+                return None
+            if father.number_of_nodes_visited + 1 > self.instance.maximum_length:
+                father.next_child_pos +=1
+                return None
+            child = self.Node()
+            child.father = father
+            child.visited = father.visited + (1 << j_next)
+            child.number_of_nodes_visited = father.number_of_nodes_visited + 1
+            child.j = j_next
+            child.length = father.length + self.instance.edges[self.instance.nodes[father.j].edges[father.next_child_pos][0]].weight
+            child.next_child_pos = 0
+            child.guide = child.length
+            child.id = self.id
+            self.id += 1
             father.next_child_pos +=1
-            return None
-        if father.number_of_nodes_visited + 1 > self.instance.maximum_length:
+            return child            
+        else:
+            j_next = father.next_child_pos
+            #if j_next > max(max(self.instance.edge_heads),max(self.instance.edge_tails)):
+                #return None
+            child = self.Node()
+            child.father = father
+            child.visited = father.visited + (1 << j_next)
+            child.number_of_nodes_visited = father.number_of_nodes_visited + 1
+            child.j = j_next
+            child.length = father.length
+            child.next_child_pos = 0
+            child.guide = child.length
+            child.id = self.id
+            self.id += 1
             father.next_child_pos +=1
-            return None
-        child = self.Node()
-        child.father = father
-        child.visited = father.visited + (1 << j_next)
-        child.number_of_nodes_visited = father.number_of_nodes_visited + 1
-        child.j = j_next
-        child.length = father.length + self.instance.edges[self.instance.nodes[father.j].edges[father.next_child_pos][0]].weight
-        child.next_child_pos = 0
-        child.guide = child.length
-        child.id = self.id
-        self.id += 1
-        father.next_child_pos +=1
-        return child
+            return child  
         # TODO END
 
     def infertile(self, node):
         # TODO START
-        res = node.next_child_pos == len(self.instance.nodes[node.j].edges)
+        if node.number_of_nodes_visited:
+            res = node.next_child_pos == len(self.instance.nodes[node.j].edges)
+        else:
+            res = node.next_child_pos == max(max([edge.node_1_id for edge in self.instance.edges]),max([edge.node_2_id for edge in self.instance.edges]))+1
         return res
         # TODO END
 
