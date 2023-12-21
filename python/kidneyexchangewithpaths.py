@@ -1,5 +1,8 @@
 import columngenerationsolverpy
-import kidneyexchange
+import treesearchsolverpy
+from copy import deepcopy
+from heuristictree import *
+
 import json
 
 
@@ -60,29 +63,12 @@ class Instance:
             self.add_node()
         self.nodes[node_id_1].edges.append((edge.id, node_id_2))
 
-    def depthFirst(self, graph, currentVertex, visited):
-        if len(visited)<=14:
-            visited.append(currentVertex)
-            for vertex in graph[currentVertex]:
-                if vertex not in visited:
-                    self.depthFirst(graph, vertex, visited.copy())
-        self.visitedList.append(visited)
-
-    
-    def combPath(self):
-        dict_neighbors = {} # 
-        edge: Edge
+    def get_vertices(self) -> set[int]:
+        vertices : set[int] = set()
         for edge in self.edges:
-            if edge.node_1_id not in dict_neighbors.keys():
-                dict_neighbors[edge.node_1_id] = [edge.node_2_id]
-            else:
-                dict_neighbors[edge.node_1_id].append(edge.node_2_id)
-        print(dict_neighbors)
-        for donneur in self.selfless_donors:
-            #self.recursif([donneur],adj,listPath)
-            self.depthFirst(dict_neighbors, donneur, [])
-
-        return self.visitedList
+            vertices.add(edge.node_1_id)
+            vertices.add(edge.node_2_id)
+        return vertices
 
     def write(self, filepath):
         data = {"maximum_cycle_length": self.maximum_cycle_length,
@@ -167,25 +153,55 @@ class PricingSolver:
     def __init__(self, instance):
         self.instance = instance
         # TODO START
+        self.vertices_used = None
         # TODO END
 
     def initialize_pricing(self, columns, fixed_columns):
         # TODO START
-        pass
+        self.vertices_used = [0] * len(self.instance.get_vertices())
+        for column_id, column_value in fixed_columns:
+            column = columns[column_id]
+            for row_index, row_coefficient in zip(column.row_indices,
+                                                  column.row_coefficients):
+                self.vertices_used[row_index] += (column_value*row_coefficient) 
         # TODO END
 
     def solve_pricing(self, duals):
         # Build subproblem instance.
         # TODO START
+        print("\n\nnew dual")
+        print(duals)
+        temp_instance = deepcopy(self.instance)
+        for edge in temp_instance.edges:
+            edge.weight *= -1
+            edge.weight+=duals[edge.node_2_id]
+        
+
+
         # TODO END
 
         # Solve subproblem instance.
         # TODO START
+        '''remeber to add duals[altruistic donor] to the final value of reduced cost'''
+        branching_scheme = BranchingScheme(temp_instance, duals)
+        output = treesearchsolverpy.iterative_beam_search(
+                    branching_scheme,
+                    time_limit=30)
+        solution = branching_scheme.to_solution(output["solution_pool"].best)
         # TODO END
 
         # Retrieve column.
         column = columngenerationsolverpy.Column()
         # TODO START
+        if len(solution) > 0:
+            column.objective_coefficient = 0
+            column.row_indices.append(self.instance.edges[solution[0]].node_1_id)
+            print("vertices visited:",[self.instance.edges[solution[0]].node_1_id]+[self.instance.edges[edge].node_2_id for edge in solution])
+            column.row_coefficients.append(1)
+            for edge in solution:
+                column.row_indices.append(self.instance.edges[edge].node_2_id)
+                column.row_coefficients.append(1)
+                column.objective_coefficient+=self.instance.edges[edge].weight
         # TODO END
 
         return [column]
@@ -195,27 +211,19 @@ def get_parameters(instance):
     # TODO START
     number_of_constraints = len(instance.get_vertices())
     p = columngenerationsolverpy.Parameters(number_of_constraints)
+    # Objective sense.
     p.objective_sense = "max"
-
-    for edge in instance.edges:
-        edge.weight *= -1
-
-    cycleList : list[list[int]] = kidneyexchange.bellman_ford(instance)
-    instance.cycleListe =cycleList
-    #m = instance.matrice(cycleList,null)
-    #instance.M=m    
-
-    pathList = instance.combPath()
-    print("------------------")
-    print(len(pathList))
-    print("------------------")
-
-    for edge in instance.edges:
-        edge.weight *= -1
-    
-    
-    
-    
+    # Column bounds.
+    p.column_lower_bound = 0
+    p.column_upper_bound = 1
+    # Row bounds.
+    for vertex in range(number_of_constraints):
+        p.row_lower_bounds[vertex] = 0
+        p.row_upper_bounds[vertex] = 1
+        p.row_coefficient_lower_bounds[vertex] = 0
+        p.row_coefficient_upper_bounds[vertex] = 1
+    # Dummy column objective coefficient.
+    p.dummy_column_objective_coefficient = -1
     # TODO END
     # Pricing solver.
     p.pricing_solver = PricingSolver(instance)
