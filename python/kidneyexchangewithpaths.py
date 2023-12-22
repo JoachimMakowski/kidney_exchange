@@ -108,9 +108,18 @@ def get_parameters(instance):
 
 def to_solution(columns, fixed_columns):
     solution = {'cycles': [], 'paths': []}
+    path_vs_cycle = 'cycles' #variable to decide whether it's a cycle or a path
     for column, value in fixed_columns:
         # TODO START
-        pass
+        if value > 0:
+            s = []
+            for index, coef in zip(column.row_indices, column.row_coefficients):
+                if coef > 0:
+                    s.append(index)
+                    if index in instance.selfless_donors:
+                        path_vs_cycle = 'paths'
+            solution[path_vs_cycle].append(s)
+                
         # TODO END
     return solution
 
