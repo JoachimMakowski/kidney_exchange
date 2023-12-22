@@ -2,6 +2,7 @@ import columngenerationsolverpy
 import treesearchsolverpy
 from copy import deepcopy
 from heuristictree import *
+from dynamic import *
 
 import json
 
@@ -19,6 +20,7 @@ class PricingSolver:
     def initialize_pricing(self, columns, fixed_columns):
         # TODO START
         self.vertices_used = [0] * len(self.instance.get_vertices())
+        print("\n\ninit pricing")
         for column_id, column_value in fixed_columns:
             column = columns[column_id]
             for row_index, row_coefficient in zip(column.row_indices,
@@ -31,37 +33,52 @@ class PricingSolver:
         # TODO START
         print("\n\nnew dual")
         print(duals)
+        print('vertices used in solution', self.vertices_used)
         temp_instance = deepcopy(self.instance)
         for edge in temp_instance.edges:
             edge.weight *= -1
-            edge.weight+=duals[edge.node_2_id]
+            if self.vertices_used[edge.node_2_id] == 1:
+                edge.weight= float("inf")
+            else:
+                edge.weight+=duals[edge.node_2_id]
         
+        temp_instance.digraph, temp_instance.maximum_cycle_length = build_from_instance(temp_instance)
         # TODO END
 
         # Solve subproblem instance.
         # TODO START
         
-        '''remeber to add duals[altruistic donor] to the final value of reduced cost'''
-        branching_scheme = BranchingScheme(temp_instance, duals)
-        output = treesearchsolverpy.iterative_beam_search(
-                    branching_scheme,
-                    time_limit=30)
-        solution = branching_scheme.to_solution(output["solution_pool"].best)
-        # TODO END
-
-        # Retrieve column.
+        solution = dynamic_programming(temp_instance)
         column = columngenerationsolverpy.Column()
-        # TODO START
         column.objective_coefficient = 0
         if len(solution) > 0:
-            column.row_indices.append(self.instance.edges[solution[0]].node_1_id)
-            print("vertices visited:",[self.instance.edges[solution[0]].node_1_id]+[self.instance.edges[edge].node_2_id for edge in solution])
-            column.row_coefficients.append(1)
+            # TODO START
             for edge in solution:
                 column.row_indices.append(self.instance.edges[edge].node_2_id)
                 column.row_coefficients.append(1)
                 column.objective_coefficient+=self.instance.edges[edge].weight
-        # TODO END
+            print('vertices:',[self.instance.edges[edge].node_2_id for edge in solution])
+            print('column coef', column.objective_coefficient)
+        else:
+            '''remeber to add duals[altruistic donor] to the final value of reduced cost'''
+            branching_scheme = BranchingScheme(temp_instance, duals)
+            output = treesearchsolverpy.iterative_beam_search(
+                        branching_scheme,
+                        minimum_size_of_the_queue=256,
+                        maximum_size_of_the_queue=256)
+            solution = branching_scheme.to_solution(output["solution_pool"].best)
+            # TODO END
+
+            # TODO START
+            if len(solution) > 0:
+                column.row_indices.append(self.instance.edges[solution[0]].node_1_id)
+                print("vertices visited:",[self.instance.edges[solution[0]].node_1_id]+[self.instance.edges[edge].node_2_id for edge in solution])
+                column.row_coefficients.append(1)
+                for edge in solution:
+                    column.row_indices.append(self.instance.edges[edge].node_2_id)
+                    column.row_coefficients.append(1)
+                    column.objective_coefficient+=self.instance.edges[edge].weight
+            # TODO END
 
         return [column]
 

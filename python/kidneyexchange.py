@@ -38,7 +38,10 @@ class PricingSolver:
         temp_instance = deepcopy(self.instance)
         for edge in temp_instance.edges:
             edge.weight *= -1
-            edge.weight+=duals[edge.node_2_id]
+            if self.vertices_used[edge.node_2_id] == 1:
+                edge.weight= float("inf")
+            else:
+                edge.weight+=duals[edge.node_2_id]
             
         #print([edge.weight for edge in temp_instance.edges])
         temp_instance.digraph, temp_instance.maximum_cycle_length = build_from_instance(temp_instance)
