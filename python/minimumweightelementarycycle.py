@@ -1,5 +1,7 @@
 import json
 from colorama import Fore, Style
+from classes import *
+from bellmanford import *
 
 class Edge:
     id : int = -1
@@ -16,7 +18,10 @@ class Instance:
         self.nodes : list[Node] = []
         self.edges : list[Edge] = []
         self.maximum_length = 1
+        self.digraph : Digraph|None = None
+
         if filepath is not None:
+            self.digraph, self.maximum_length = build_from_filename(filepath)
             with open(filepath) as json_file:
                 data = json.load(json_file)
                 self.maximum_length = data["maximum_length"]
@@ -109,115 +114,48 @@ class Instance:
             print(f"Weight: {weight}")
             return (is_feasible, weight)
 
-
-def bellman_ford(instance : Instance) -> list[list[int]]:
-    nb_vertices = len(instance.get_vertices())
-    vertices = range(nb_vertices)
-    tab_bellmanford : list[list[int]] = [[0 for _ in vertices] for __ in vertices]
-
-    def update_tab(instance : Instance, tab : list[list[int]], i : int, v : int) -> int|None:
-        """
-            Calcule l_{i+1}(v) = min( l_{i}(v), l_{i}(u) + c_{uv} )
-        """
-        best_val : int = tab[i][v]
-        best_vertex : int|None = None
-        for edge in instance.edges:
-            if (edge.node_1_id == v):
-                u = edge.node_2_id
-                if tab[i][u] + edge.weight <= best_val:
-                    best_val = tab[i][u] + edge.weight
-                    best_vertex = u
-        
-        tab[i+1][v] = best_val
-        return best_vertex
-
-    # Initialisation
-    for v in range(1, nb_vertices):
-        tab_bellmanford[0][v] = float("inf")
-    
-    # Boucle principale
-    backtrack_dict : dict[tuple[int, int], int|None] = {}
-    for i in range(nb_vertices - 1):
-        for v in range(nb_vertices):
-            backtrack_dict[(i + 1, v)] = update_tab(instance, tab_bellmanford, i, v)
-    
-    potential_sols : list[list[int]] = []
-    for v in vertices:
-        visited : list[int] = [v]
-        i = nb_vertices - 1
-        w = v
-        has_been_added = False
-        while i > 0:
-            u = backtrack_dict[(i, w)]
-            if u is None:
-                pass
-
-            elif u not in visited:
-                # u est un sommet pas encore visité
-                visited.append(u)
-                w = u
-            else:
-                # u a déjà été visité par le passé
-                u_pos = visited.index(u)
-                visited = visited[u_pos:] + [u]
-                visited.reverse()
-                has_been_added = True
-                potential_sols.append(visited)
-                w = u
-                break
-            i -= 1
-        
-        if not has_been_added and len(visited) > 1:
-            can_construct_cycle = False
-            u = visited[-1]
-            v = visited[0]
-            for edge in instance.edges:
-                if (edge.node_1_id == u) and (edge.node_2_id == v):
-                    can_construct_cycle = True
-                    break
-            
-            if not can_construct_cycle:
-                continue
-            
-            visited.append(visited[0])
-            visited.reverse()
-            
-            total_weight = 0
-            for i in range(len(visited) - 1):
-                u = visited[i]
-                v = visited[i+1]
-                for edge in instance.edges:
-                    if (edge.node_1_id == v) and (edge.node_2_id == u):
-                        total_weight += edge.weight
-            if total_weight < 0:
-                potential_sols.append(visited)
-    if len(potential_sols) == 0:
-        return []
-    # Keeping only solutions with <= K arcs
-    all_vertex_cycles = [cycle for cycle in potential_sols if len(cycle) <= instance.maximum_length+1 and len(cycle) >= 3]
-    all_vertex_cycles.sort(key = lambda cycle : len(cycle))
-
-    if len(all_vertex_cycles) == 0:
-        return []
-    
-    all_cycles : list[list[int]] = []
-    for cycle_found in all_vertex_cycles:
-        solution : list[int] =  []
-        for i in range(len(cycle_found) - 1):
-            u, v = cycle_found[i], cycle_found[i+1]
-            for edge in instance.edges:
-                if (edge.node_1_id == v) and (edge.node_2_id == u):
-                    solution.append(edge.id)
-            i=0
-        all_cycles.append(solution)
-    return all_cycles
+def build_instance_from_digraph(filepath: str|None = None):
+    digraph, max_length = build_from_filename(filepath)
+    if digraph is not None:
+        instance = Instance()
+        instance.maximum_length = max_length
+        instance.digraph = digraph
+        for arc in digraph.arcs:
+            instance.add_edge(arc.head, arc.tail, arc.weight)
+        return instance
+    return None
 
 def dynamic_programming(instance : Instance) -> list[int]:
     """
         Takes an instance as an input, returns the list of
         edge_id corresponding to the negative cycle found
     """
-    all_cycles = bellman_ford(instance)
+    all_cycles = []
+
+    arcs : list[Arc] = []
+    for r in instance.digraph.vertices:
+        # print(f"Bellman-Ford rooted in {chr(65 + r)}")
+        tab = bellman_ford(instance.digraph, r, instance.maximum_length)
+        index : int|None = None
+        for i, dist_r in enumerate(tab[r]):
+            if dist_r < 0:
+                index = i
+                break
+        
+        if index is not None:
+            arcs = backtrack_bellman_ford(instance.digraph, tab, r, index)
+            arcs_id = [a_.arc_id for a_ in arcs]
+            
+            is_a_permutation = False
+            for l in range(len(arcs_id)):
+                tmp = arcs_id[l:] + arcs_id[:l]
+                if tmp in all_cycles:
+                    is_a_permutation = True
+                    break
+            
+            if not is_a_permutation:
+                all_cycles.append(arcs_id)
+
     if len(all_cycles) == 0:
         return []
     return all_cycles[0]
