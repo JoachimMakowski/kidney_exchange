@@ -19,11 +19,14 @@ class PricingSolver:
     def initialize_pricing(self, columns, fixed_columns):
         # TODO START
         self.vertices_used = [0] * len(self.instance.get_vertices())
+        print("\n\ninit pricing")
         for column_id, column_value in fixed_columns:
             column = columns[column_id]
             for row_index, row_coefficient in zip(column.row_indices,
                                                   column.row_coefficients):
-                self.vertices_used[row_index] += (column_value*row_coefficient)            
+                print(row_index, column_value, row_coefficient)
+                self.vertices_used[row_index] += (column_value*row_coefficient)  
+
         # TODO END
 
     def solve_pricing(self, duals):
@@ -31,12 +34,13 @@ class PricingSolver:
         # TODO START
         print("\n\nnew dual")
         print(duals)
+        print('vertices used in solution', self.vertices_used)
         temp_instance = deepcopy(self.instance)
         for edge in temp_instance.edges:
             edge.weight *= -1
             edge.weight+=duals[edge.node_2_id]
             
-        print([edge.weight for edge in temp_instance.edges])
+        #print([edge.weight for edge in temp_instance.edges])
         temp_instance.digraph, temp_instance.maximum_cycle_length = build_from_instance(temp_instance)
         # TODO END
             
@@ -52,14 +56,11 @@ class PricingSolver:
         # TODO START
         column.objective_coefficient = 0
         if len(solution) > 0:
-            column.row_indices.append(self.instance.edges[solution[0]].node_1_id)
-            print("vertices visited:",[self.instance.edges[solution[0]].node_1_id]+[self.instance.edges[edge].node_2_id for edge in solution])
-            column.row_coefficients.append(1)
             for edge in solution:
                 column.row_indices.append(self.instance.edges[edge].node_2_id)
                 column.row_coefficients.append(1)
-                print(self.instance.edges[edge].node_1_id, self.instance.edges[edge].node_2_id ,self.instance.edges[edge].weight)
                 column.objective_coefficient+=self.instance.edges[edge].weight
+        print('vertices:',[self.instance.edges[edge].node_2_id for edge in solution])
         print('column coef', column.objective_coefficient)
         # TODO END
         return [column]
@@ -160,7 +161,6 @@ if __name__ == "__main__":
                     args.instance + "_" + str(number_of_nodes) + ".json")
 
     elif args.algorithm == "column_generation":
-        print('\n\n','test', '\n\n')
         instance = Instance(args.instance)
         parameters = get_parameters(instance)
         output = columngenerationsolverpy.column_generation(
